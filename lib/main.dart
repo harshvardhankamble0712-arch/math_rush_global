@@ -1,4 +1,4 @@
-Import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
 import 'dart:async';
@@ -15,7 +15,7 @@ class MathRushGame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Math Rush Global',
+      title: 'Math Elite',
       theme: ThemeData.dark().copyWith(
         primaryColor: Colors.amber,
         scaffoldBackgroundColor: const Color(0xff121212),
@@ -198,7 +198,7 @@ class _GameScreenState extends State<GameScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('🧮 MATH RUSH GLOBAL ⚡', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.amber, letterSpacing: 1)),
+                      const Text('🧮 MATH ELITE ⚡', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.amber, letterSpacing: 1)),
                       const SizedBox(height: 10),
                       const Text('तुमच्या डोक्याला द्या गती!', style: TextStyle(fontSize: 16, color: Colors.grey)),
                       const SizedBox(height: 50),
