@@ -1,7 +1,8 @@
 name: Build APK
+
 on: [push]
 
- jobs:
+jobs:
   build:
     runs-on: ubuntu-latest
     steps:
@@ -25,3 +26,4 @@ on: [push]
         with:
           name: game-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          
