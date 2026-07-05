@@ -1,222 +1,277 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'dart:math';
-import 'dart:async';
-
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const MathRushGame());
-}
-
-class MathRushGame extends StatelessWidget {
-  const MathRushGame({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Math Elite',
-      theme: ThemeData.dark().copyWith(
-        primaryColor: Colors.amber,
-        scaffoldBackgroundColor: const Color(0xff121212),
-      ),
-      home: const GameScreen(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
-
-class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
-
-  @override
-  State<GameScreen> createState() => _GameScreenState();
-}
-
-class _GameScreenState extends State<GameScreen> {
-  int num1 = 0;
-  int num2 = 0;
-  String operator = '+';
-  int correctAnswer = 0;
-  List<int> options = [];
-  int score = 0;
-  int timeLeft = 10;
-  Timer? timer;
-  bool isPlaying = false;
-
-  void generateQuestion() {
-    final random = Random();
-    int opType = random.nextInt(3); 
-
-    if (opType == 0) {
-      operator = '+';
-      num1 = random.nextInt(50) + 1;
-      num2 = random.nextInt(50) + 1;
-      correctAnswer = num1 + num2;
-    } else if (opType == 1) {
-      operator = '-';
-      num1 = random.nextInt(50) + 20;
-      num2 = random.nextInt(num1 - 1) + 1;
-      correctAnswer = num1 - num2;
-    } else {
-      operator = '×';
-      num1 = random.nextInt(12) + 1;
-      num2 = random.nextInt(12) + 1;
-      correctAnswer = num1 * num2;
-    }
-
-    options = [correctAnswer];
-    while (options.length < 4) {
-      int wrongAns = correctAnswer + random.nextInt(20) - random.nextInt(20);
-      if (!options.contains(wrongAns) && wrongAns >= 0) {
-        options.add(wrongAns);
-      }
-    }
-    options.shuffle();
-  }
-
-  void startTimer() {
-    timer?.cancel();
-    timeLeft = 10;
-    timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      setState(() {
-        if (timeLeft > 0) {
-          timeLeft--;
-        } else {
-          gameOver();
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Elite</title>
+    <style>
+        /* CSS: बेस डिझाईन */
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white; display: flex;
+            justify-content: center; align-items: center;
+            height: 100vh; text-align: center; overflow: hidden;
         }
-      });
-    });
-  }
+        .screen {
+            display: none; width: 90%; max-width: 400px;
+            background: rgba(255, 255, 255, 0.1); padding: 30px;
+            border-radius: 15px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px); position: relative;
+        }
+        .active { display: block; }
+        
+        .game-logo { width: 180px; height: auto; margin-bottom: 20px; border-radius: 15px; filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.4)); }
+        h1 { display: none; }
+        .hk-production { font-size: 0.8em; color: #ccc; margin-top: 30px; }
+        
+        /* बटन्स */
+        button {
+            background-color: #ff9800; color: white; border: none;
+            padding: 15px; margin: 10px 0; width: 100%;
+            font-size: 1.2em; border-radius: 8px; cursor: pointer;
+            transition: 0.3s; font-weight: bold;
+        }
+        button:hover { background-color: #e68a00; }
+        .back-btn { background-color: #555; width: auto; padding: 10px 15px; margin-bottom: 20px; float: left; }
+        .settings-btn { float: right; background: none; font-size: 1.8em; cursor: pointer; padding: 0; width: auto; margin:0;}
+        
+        /* गेमप्ले */
+        .info-bar { display: flex; justify-content: space-between; font-size: 1.2em; margin-bottom: 20px; clear: both;}
+        .question { font-size: 3em; margin: 20px 0; font-weight: bold; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 10px;}
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .option-btn { background-color: #4CAF50; font-size: 1.5em; padding: 20px; }
+        
+        /* सेटिंग्स आणि कस्टम मोड */
+        .modal {
+            display: none; position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); width: 85%; max-width: 350px;
+            background: #222; padding: 20px; border-radius: 15px;
+            z-index: 100; box-shadow: 0 0 20px rgba(0,0,0,0.8); border: 2px solid #ff9800;
+        }
+        select, input {
+            width: 90%; padding: 10px; margin: 10px 0;
+            font-size: 1.2em; border-radius: 5px; border: none; text-align: center;
+        }
+        #result-msg { font-size: 1.5em; margin-top: 20px; height: 30px; font-weight: bold;}
+    </style>
+</head>
+<body>
 
-  void startGame() {
-    setState(() {
-      score = 0;
-      isPlaying = true;
-      generateQuestion();
-      startTimer();
-    });
-  }
+    <div id="settings-modal" class="modal">
+        <h2>⚙️ Settings</h2>
+        <p>भाषा निवडा (Language):</p>
+        <select id="language-select">
+            <option value="mr">मराठी</option>
+            <option value="en">English</option>
+            <option value="hi">हिंदी</option>
+        </select>
+        <button onclick="closeSettings()" style="background-color: #4CAF50;">Save & Close</button>
+    </div>
 
-  void checkAnswer(int selectedAnswer) {
-    if (selectedAnswer == correctAnswer) {
-      setState(() {
-        score += 10;
-        generateQuestion();
-        startTimer();
-      });
-    } else {
-      gameOver();
-    }
-  }
+    <div id="home-screen" class="screen active">
+        <button class="settings-btn" onclick="openSettings()">⚙️</button>
+        <div style="clear:both;"></div>
+        <img src="IMG-20260704-WA2822.jpg" alt="Math Elite Logo" class="game-logo">
+        <h1>Math Elite</h1>
+        <button onclick="showScreen('category-screen')">Start Game</button>
+        <div class="hk-production">Background by HK Production</div>
+    </div>
 
-  void gameOver() {
-    timer?.cancel();
-    setState(() {
-      isPlaying = false;
-    });
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Game Over 💥', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text('तुमचा स्कोर: $score', textAlign: TextAlign.center, style: const TextStyle(fontSize: 20)),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              startGame();
-            },
-            child: const Text('पुन्हा खेळा 🔄', style: TextStyle(color: Colors.amber, fontSize: 16)),
-          )
-        ],
-      ),
-    );
-  }
+    <div id="category-screen" class="screen">
+        <button class="back-btn" onclick="showScreen('home-screen')">🔙 Back</button>
+        <button class="settings-btn" onclick="openSettings()">⚙️</button>
+        <h2 style="clear:both;">पर्याय निवडा</h2>
+        <button onclick="selectCategory('+')">बेरीज (Addition)</button>
+        <button onclick="selectCategory('-')">वजाबाकी (Subtraction)</button>
+        <button onclick="selectCategory('*')">गुणाकार (Multiplication)</button>
+        <button onclick="selectCategory('/')">भागाकार (Division)</button>
+        <button onclick="showScreen('custom-screen')" style="background-color: #9c27b0;">पालक देतील ते (Custom)</button>
+    </div>
 
-  @override
-  void dispose() {
-    timer?.cancel();
-    super.dispose();
-  }
+    <div id="custom-screen" class="screen">
+        <button class="back-btn" onclick="showScreen('category-screen')">🔙 Back</button>
+        <h2 style="clear:both;">पालकांचे गणित</h2>
+        <input type="number" id="custom-num1" placeholder="पहिली संख्या (उदा. 15)">
+        <select id="custom-op">
+            <option value="+">बेरीज (+)</option>
+            <option value="-">वजाबाकी (-)</option>
+            <option value="*">गुणाकार (x)</option>
+            <option value="/">भागाकार (/)</option>
+        </select>
+        <input type="number" id="custom-num2" placeholder="दुसरी संख्या (उदा. 7)">
+        <button onclick="startCustomGame()" style="background-color: #e91e63;">Start Custom Game</button>
+    </div>
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: isPlaying
-              ? Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('स्कोर: $score', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.greenAccent)),
-                        Text('वेळ: ${timeLeft}s', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: timeLeft <= 3 ? Colors.red : Colors.amber)),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xff1e1e1e),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white10),
-                      ),
-                      child: Text(
-                        '$num1 $operator $num2 = ?',
-                        style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, letterSpacing: 2),
-                      ),
-                    ),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 1.5,
-                      ),
-                      itemCount: 4,
-                      itemBuilder: (context, index) {
-                        return ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xff252525),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                            side: const BorderSide(color: Colors.white24),
-                          ),
-                          onPressed: () => checkAnswer(options[index]),
-                          child: Text(options[index].toString(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-                        );
-                      },
-                    ),
-                  ],
-                )
-              : Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('🧮 MATH ELITE ⚡', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.amber, letterSpacing: 1)),
-                      const SizedBox(height: 10),
-                      const Text('तुमच्या डोक्याला द्या गती!', style: TextStyle(fontSize: 16, color: Colors.grey)),
-                      const SizedBox(height: 50),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.amber,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                        ),
-                        onPressed: startGame,
-                        child: const Text('गेम सुरू करा 🎮', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                ),
-        ),
-      ),
-    );
-  }
-}
+    <div id="level-screen" class="screen">
+        <button class="back-btn" onclick="showScreen('category-screen')">🔙 Back</button>
+        <h2 style="clear:both;">लेव्हल निवडा</h2>
+        <button onclick="startGame('simple')">Basic / Simple Level</button>
+        <button onclick="startGame('pro')">Pro Level</button>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <button class="back-btn" onclick="clearInterval(timerInterval); showScreen('category-screen')">🔙 Quit</button>
+        <div class="info-bar">
+            <span>Score: <span id="score">0</span></span>
+            <span>Time: <span id="time">0</span>s</span>
+        </div>
+        <div class="question" id="question-text">?</div>
+        <div class="options-grid" id="options-container"></div>
+        <div id="result-msg"></div>
+        <button id="next-btn" style="display:none;" onclick="handleNext()">Next ➡️</button>
+    </div>
+
+    <script>
+        let currentCategory = '';
+        let currentLevel = '';
+        let score = 0;
+        let timeLeft = 0;
+        let timerInterval;
+        let correctAnswer = 0;
+        let isCustomMode = false; // कस्टम मोड चालू आहे का ते तपासण्यासाठी
+
+        // सेटिंग्स उघडणे आणि बंद करणे
+        function openSettings() { document.getElementById('settings-modal').style.display = 'block'; }
+        function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function selectCategory(category) {
+            currentCategory = category;
+            isCustomMode = false;
+            showScreen('level-screen');
+        }
+
+        // पालकांचा कस्टम गेम सुरु करणे
+        function startCustomGame() {
+            let num1 = parseInt(document.getElementById('custom-num1').value);
+            let num2 = parseInt(document.getElementById('custom-num2').value);
+            let op = document.getElementById('custom-op').value;
+
+            if(isNaN(num1) || isNaN(num2)) {
+                alert("कृपया दोन्ही संख्या टाका! (Please enter numbers)");
+                return;
+            }
+
+            currentCategory = op;
+            isCustomMode = true;
+            score = 0;
+            document.getElementById('score').innerText = score;
+            showScreen('game-screen');
+            
+            // कस्टम गेमसाठी टाईम लिमिट थोडी जास्त (३० सेकंद) ठेवूया
+            startTimer(30);
+            createProblem(num1, num2, op);
+        }
+
+        // नॉर्मल गेम सुरु करणे
+        function startGame(level) {
+            currentLevel = level;
+            score = 0;
+            document.getElementById('score').innerText = score;
+            showScreen('game-screen');
+            generateRandomProblem();
+        }
+
+        // टायमर लॉजिक
+        function startTimer(seconds) {
+            timeLeft = seconds;
+            document.getElementById('time').innerText = timeLeft;
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('time').innerText = timeLeft;
+                if(timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    document.getElementById('result-msg').innerText = "❌ Time Out!";
+                    document.getElementById('result-msg').style.color = "red";
+                    document.getElementById('next-btn').style.display = "block";
+                    disableOptions();
+                }
+            }, 1000);
+        }
+
+        function generateRandomProblem() {
+            startTimer((currentLevel === 'simple') ? 10 : 20);
+            let maxNum = (currentLevel === 'simple') ? 10 : 100;
+            let num1 = Math.floor(Math.random() * maxNum) + 1;
+            let num2 = Math.floor(Math.random() * maxNum) + 1;
+
+            if(currentCategory === '-' && num1 < num2) {
+                let temp = num1; num1 = num2; num2 = temp; // वजाबाकीसाठी मोठी संख्या आधी
+            }
+            createProblem(num1, num2, currentCategory);
+        }
+
+        // स्क्रीनवर गणित तयार करणे
+        function createProblem(num1, num2, operator) {
+            document.getElementById('result-msg').innerText = '';
+            document.getElementById('next-btn').style.display = 'none';
+
+            let displayOp = operator === '*' ? 'x' : operator === '/' ? '÷' : operator;
+            document.getElementById('question-text').innerText = `${num1} ${displayOp} ${num2}`;
+            
+            if(operator === '+') correctAnswer = num1 + num2;
+            else if(operator === '-') correctAnswer = num1 - num2;
+            else if(operator === '*') correctAnswer = num1 * num2;
+            else if(operator === '/') correctAnswer = parseFloat((num1 / num2).toFixed(1)); 
+
+            let options = [correctAnswer];
+            while(options.length < 4) {
+                let variance = Math.floor(Math.random() * 10) - 5;
+                if(variance === 0) variance = 2; // शून्य टाळण्यासाठी
+                let wrongAnswer = correctAnswer + variance;
+                if(!options.includes(wrongAnswer)) {
+                    options.push(wrongAnswer);
+                }
+            }
+            options.sort(() => Math.random() - 0.5);
+
+            let optionsHtml = '';
+            options.forEach(opt => {
+                optionsHtml += `<button class="option-btn" onclick="checkAnswer(${opt})">${opt}</button>`;
+            });
+            document.getElementById('options-container').innerHTML = optionsHtml;
+        }
+
+        function checkAnswer(selected) {
+            clearInterval(timerInterval); 
+            disableOptions();
+            let msgElement = document.getElementById('result-msg');
+            
+            if(selected === correctAnswer) {
+                msgElement.innerText = "✅ बरोबर (Correct)!";
+                msgElement.style.color = "lightgreen";
+                score += 10;
+                document.getElementById('score').innerText = score;
+            } else {
+                msgElement.innerText = `❌ चुकीचे! बरोबर उत्तर: ${correctAnswer}`;
+                msgElement.style.color = "red";
+            }
+            document.getElementById('next-btn').style.display = "block";
+        }
+
+        function disableOptions() {
+            document.querySelectorAll('.option-btn').forEach(btn => btn.disabled = true);
+        }
+
+        // Next बटनाचे लॉजिक
+        function handleNext() {
+            if(isCustomMode) {
+                // कस्टम मोडमध्ये एका गणितानंतर पुन्हा कस्टम स्क्रीनवर पाठवणे योग्य राहील
+                showScreen('custom-screen');
+                document.getElementById('custom-num1').value = '';
+                document.getElementById('custom-num2').value = '';
+            } else {
+                generateRandomProblem();
+            }
+        }
+    </script>
+</body>
+</html>
+      
